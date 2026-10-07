@@ -1,0 +1,2045 @@
+// ============================================================
+// WILD TRACE — VISUAL GAMEPLAY PROTOTYPE
+// p5.js — no external assets required
+//
+// CORE LOOP:
+// 1. Place limited camera traps.
+// 2. Night passes visually.
+// 3. Inspect whatever your cameras captured.
+// 4. Build connections on the case board.
+// 5. Reserve changes each night.
+// 6. Mid-game reveal changes how you understand the mission.
+// 7. Select 5 photographs to build your final case.
+//
+// Graphics are intentionally primitive.
+// Replace drawScene() visuals later with actual artwork/photos.
+// ============================================================
+
+let state = "intro";
+
+let night = 1;
+const totalNights = 5;
+
+let cameraCount = 3;
+let selectedSites = [];
+
+let tonightPhotos = [];
+let collectedPhotos = [];
+
+let nightStart = 0;
+let nightDuration = 5200;
+let nightResolved = false;
+
+let flashTimes = [];
+let enlargedPhoto = null;
+
+let twistSeen = false;
+let lostCamera = false;
+
+let boardLinkStart = null;
+let boardLinks = [];
+
+let finalSelection = [];
+let endingStrong = false;
+
+let nextPhotoId = 0;
+
+// ------------------------------------------------------------
+// RESERVE LOCATIONS
+// ------------------------------------------------------------
+
+const sites = [
+  { id: "woods",    name: "WOODS",    x: 240, y: 210 },
+  { id: "wetland",  name: "WETLAND",  x: 500, y: 175 },
+  { id: "ridge",    name: "RIDGE",     x: 815, y: 160 },
+  { id: "corridor", name: "CORRIDOR",  x: 665, y: 325 },
+  { id: "farm",     name: "FARM",      x: 245, y: 515 },
+  { id: "creek",    name: "CREEK",     x: 500, y: 500 },
+  { id: "site",     name: "SITE",      x: 865, y: 500 }
+];
+
+// ------------------------------------------------------------
+// PRE-AUTHORED EVENTS
+//
+// Nothing here requires animal AI.
+// If camera is at location X on night Y,
+// it receives that event/photo.
+// ------------------------------------------------------------
+
+const events = {
+
+  1: {
+    woods: {
+      time: "01:47",
+      scene: "foxEast",
+      tags: ["fox", "movement"],
+      p: 0.25
+    },
+
+    wetland: {
+      time: "03:18",
+      scene: "birdWetland",
+      tags: ["bird"],
+      p: 0.66
+    },
+
+    ridge: {
+      time: "00:42",
+      scene: "owl",
+      tags: [],
+      p: 0.16
+    },
+
+    corridor: {
+      time: "02:21",
+      scene: "tracksStake",
+      tags: ["tracks", "corridor"],
+      p: 0.45
+    },
+
+    farm: {
+      time: "04:06",
+      scene: "emptyFarm",
+      tags: [],
+      p: 0.82
+    },
+
+    creek: {
+      time: "00:58",
+      scene: "deerCreek",
+      tags: [],
+      p: 0.19
+    },
+
+    site: {
+      time: "23:44",
+      scene: "emptySite",
+      tags: [],
+      p: 0.10
+    }
+  },
+
+  2: {
+    woods: {
+      time: "01:39",
+      scene: "foxEast",
+      tags: ["fox", "movement"],
+      p: 0.28
+    },
+
+    wetland: {
+      time: "03:11",
+      scene: "emptyNest",
+      tags: ["wetlandChange"],
+      p: 0.65
+    },
+
+    ridge: {
+      time: "02:51",
+      scene: "deerRidge",
+      tags: [],
+      p: 0.58
+    },
+
+    corridor: {
+      time: "02:07",
+      scene: "foxCorridor",
+      tags: ["fox", "movement", "corridor"],
+      p: 0.42
+    },
+
+    farm: {
+      time: "03:02",
+      scene: "foxFarm",
+      tags: ["fox", "farm", "displacement"],
+      p: 0.63
+    },
+
+    creek: {
+      time: "02:38",
+      scene: "muddyCreek",
+      tags: ["waterChange"],
+      p: 0.52
+    },
+
+    site: {
+      time: "00:16",
+      scene: "truckNight",
+      tags: ["construction"],
+      p: 0.14
+    }
+  },
+
+  3: {
+    woods: {
+      time: "02:20",
+      scene: "emptyWoods",
+      tags: [],
+      p: 0.47
+    },
+
+    wetland: {
+      time: "03:28",
+      scene: "emptyWetland",
+      tags: ["wetlandChange"],
+      p: 0.69
+    },
+
+    ridge: {
+      time: "01:12",
+      scene: "humanDistance",
+      tags: ["human"],
+      p: 0.23
+    },
+
+    corridor: {
+      time: "02:44",
+      scene: "multiCorridor",
+      tags: ["corridor", "movement", "multi"],
+      p: 0.55
+    },
+
+    farm: {
+      time: "03:17",
+      scene: "foxFarm",
+      tags: ["fox", "farm", "displacement"],
+      p: 0.67
+    },
+
+    creek: {
+      time: "01:52",
+      scene: "sediment",
+      tags: ["waterChange", "construction"],
+      p: 0.36
+    },
+
+    site: {
+      time: "02:13",
+      scene: "cameraTamper",
+      tags: ["human", "interference", "construction"],
+      p: 0.44
+    }
+  },
+
+  4: {
+    woods: {
+      time: "02:04",
+      scene: "tracksTurn",
+      tags: ["movement"],
+      p: 0.42
+    },
+
+    wetland: {
+      time: "03:06",
+      scene: "singleBird",
+      tags: ["wetlandChange"],
+      p: 0.63
+    },
+
+    ridge: {
+      time: "01:49",
+      scene: "emptyRidge",
+      tags: [],
+      p: 0.34
+    },
+
+    corridor: {
+      time: "02:36",
+      scene: "foxBlocked",
+      tags: ["fox", "corridor", "blocked", "fence"],
+      p: 0.51
+    },
+
+    farm: {
+      time: "03:41",
+      scene: "farmAnimals",
+      tags: ["farm", "displacement", "multi"],
+      p: 0.75
+    },
+
+    creek: {
+      time: "01:21",
+      scene: "quietCreek",
+      tags: ["waterChange"],
+      p: 0.26
+    },
+
+    site: {
+      time: "00:37",
+      scene: "fenceGrow",
+      tags: ["construction", "fence"],
+      p: 0.17
+    }
+  },
+
+  5: {
+    woods: {
+      time: "02:11",
+      scene: "abandonedTrail",
+      tags: ["movement"],
+      p: 0.43
+    },
+
+    wetland: {
+      time: "03:22",
+      scene: "emptyNest",
+      tags: ["wetlandChange"],
+      p: 0.68
+    },
+
+    ridge: {
+      time: "01:56",
+      scene: "deerRidge",
+      tags: [],
+      p: 0.37
+    },
+
+    corridor: {
+      time: "02:31",
+      scene: "multiBlocked",
+      tags: ["corridor", "movement", "multi", "blocked", "fence"],
+      p: 0.50
+    },
+
+    farm: {
+      time: "03:46",
+      scene: "wildlifeCrowd",
+      tags: ["farm", "displacement", "multi"],
+      p: 0.76
+    },
+
+    creek: {
+      time: "01:44",
+      scene: "muddyCreek",
+      tags: ["waterChange"],
+      p: 0.32
+    },
+
+    site: {
+      time: "00:28",
+      scene: "fullFence",
+      tags: ["construction", "fence"],
+      p: 0.15
+    }
+  }
+};
+
+// ============================================================
+// SETUP
+// ============================================================
+
+function setup() {
+  createCanvas(1200, 760);
+  textFont("Arial");
+}
+
+// ============================================================
+// MAIN DRAW
+// ============================================================
+
+function draw() {
+  background(25);
+
+  if (state === "intro") drawIntro();
+  if (state === "planning") drawPlanning();
+  if (state === "night") drawNight();
+  if (state === "review") drawReview();
+  if (state === "twist") drawTwist();
+  if (state === "board") drawBoard();
+  if (state === "final") drawFinalSelection();
+  if (state === "ending") drawEnding();
+
+  if (enlargedPhoto) {
+    drawPhotoOverlay(enlargedPhoto);
+  }
+}
+
+// ============================================================
+// INTRO
+// ============================================================
+
+function drawIntro() {
+  background(22, 29, 25);
+
+  // desk
+  fill(52, 45, 35);
+  rect(0, 520, width, 240);
+
+  // file folder
+  fill(210, 192, 145);
+  rect(285, 120, 630, 470, 8);
+
+  fill(194, 171, 115);
+  rect(285, 95, 230, 45, 6);
+
+  // researcher photo
+  fill(235);
+  rect(350, 180, 190, 235);
+
+  fill(60);
+  ellipse(445, 255, 70);
+  rect(405, 295, 80, 80, 30);
+
+  // camera
+  drawCameraIcon(655, 235, 85);
+
+  // three camera symbols
+  for (let i = 0; i < 3; i++) {
+    drawTinyCamera(640 + i * 65, 350, false);
+  }
+
+  // logo
+  drawNorthstarLogo(750, 175, 42);
+
+  fill(40);
+  textAlign(LEFT);
+  textSize(17);
+  text("FIELD CASE 04", 350, 455);
+
+  textSize(26);
+  textStyle(BOLD);
+  text("RECOVER FIELD DATA", 350, 495);
+  textStyle(NORMAL);
+
+  // 5 nights
+  for (let i = 0; i < 5; i++) {
+    fill(45);
+    ellipse(365 + i * 34, 540, 13);
+  }
+
+  button(760, 520, 110, 48, "START");
+}
+
+// ============================================================
+// PLANNING MAP
+// ============================================================
+
+function drawPlanning() {
+  drawReserveMap();
+
+  // top bar
+  fill(20, 25, 22, 225);
+  rect(0, 0, width, 82);
+
+  fill(240);
+  textAlign(LEFT, CENTER);
+  textSize(22);
+  text("NIGHT " + night, 30, 40);
+
+  drawNightDots();
+
+  // camera dock
+  fill(26, 30, 28, 230);
+  rect(35, 610, 260, 110, 14);
+
+  for (let i = 0; i < cameraCount; i++) {
+    let used = i < selectedSites.length;
+    drawTinyCamera(85 + i * 70, 655, used);
+  }
+
+  // tiny interaction hint
+  fill(220);
+  textSize(11);
+  textAlign(LEFT);
+  text("CAMERAS", 55, 704);
+
+  // case board
+  button(330, 635, 100, 55, "CASE");
+
+  // begin night
+  let ready = selectedSites.length === cameraCount;
+
+  if (ready) {
+    drawMoonButton(1085, 655);
+  } else {
+    fill(255, 255, 255, 100);
+    textAlign(RIGHT);
+    textSize(12);
+    text((cameraCount - selectedSites.length) + " LEFT", 1145, 655);
+  }
+
+  // old photo strip
+  if (collectedPhotos.length > 0) {
+    let recent = collectedPhotos.slice(-4);
+
+    for (let i = 0; i < recent.length; i++) {
+      let x = 470 + i * 115;
+      drawMiniPhoto(recent[i], x, 620, 95, 78);
+    }
+  }
+}
+
+// ============================================================
+// RESERVE MAP
+// ============================================================
+
+function drawReserveMap() {
+  background(166, 183, 145);
+
+  // forest
+  noStroke();
+  fill(94, 130, 87);
+  blob(200, 220, 280, 220);
+
+  // wetland
+  fill(95, 145, 150);
+  ellipse(500, 200, 260, 170);
+
+  // ridge
+  fill(133, 125, 94);
+  triangle(700, 250, 820, 90, 930, 245);
+  triangle(790, 250, 910, 120, 1000, 250);
+
+  // farm
+  fill(182, 168, 105);
+  rect(80, 410, 310, 220, 25);
+
+  // crop rows
+  stroke(145, 130, 80);
+  strokeWeight(4);
+  for (let y = 440; y < 610; y += 25) {
+    line(110, y, 355, y);
+  }
+
+  // creek
+  noFill();
+  stroke(75, 133, 165);
+  strokeWeight(32);
+  bezier(425, 330, 410, 430, 590, 420, 555, 650);
+
+  // corridor
+  stroke(113, 145, 91);
+  strokeWeight(80);
+  line(580, 280, 780, 380);
+
+  // development
+  noStroke();
+  fill(160, 145, 125);
+  rect(770, 365, 350, 280, 25);
+
+  // construction clearing grows
+  drawConstructionProgress();
+
+  // locations
+  for (let s of sites) {
+    drawSiteMarker(s);
+  }
+}
+
+function drawConstructionProgress() {
+  let stages = [
+    0,
+    45,
+    105,
+    165,
+    235
+  ];
+
+  let size = stages[night - 1];
+
+  if (size > 0) {
+    fill(190, 175, 150);
+    rect(755, 335, size, 70, 8);
+  }
+
+  // survey stakes
+  if (night >= 2) {
+    stroke(190, 80, 60);
+    strokeWeight(4);
+
+    for (let i = 0; i < night; i++) {
+      let x = 750 + i * 50;
+      line(x, 315, x, 355);
+    }
+  }
+
+  // fence grows visually
+  if (night >= 3) {
+    let segments = night - 2;
+
+    stroke(80);
+    strokeWeight(3);
+
+    for (let i = 0; i < segments * 3; i++) {
+      let x = 710 + i * 30;
+      line(x, 355, x, 410);
+      line(x, 370, x + 30, 385);
+      line(x, 385, x + 30, 370);
+    }
+  }
+
+  noStroke();
+}
+
+function drawSiteMarker(s) {
+  let chosen = selectedSites.includes(s.id);
+
+  stroke(chosen ? color(255, 206, 75) : color(245));
+  strokeWeight(chosen ? 6 : 3);
+
+  fill(chosen ? color(48, 55, 46) : color(50, 60, 50, 210));
+  ellipse(s.x, s.y, 58);
+
+  noStroke();
+
+  if (chosen) {
+    drawTinyCamera(s.x, s.y, false, 0.7);
+  } else {
+    fill(240);
+    ellipse(s.x, s.y, 8);
+  }
+
+  fill(25, 30, 25, 210);
+  rect(s.x - 40, s.y + 34, 80, 22, 5);
+
+  fill(245);
+  textAlign(CENTER, CENTER);
+  textSize(10);
+  text(s.name, s.x, s.y + 45);
+}
+
+// ============================================================
+// NIGHT
+// ============================================================
+
+function beginNight() {
+  tonightPhotos = [];
+  flashTimes = [];
+  nightResolved = false;
+
+  for (let id of selectedSites) {
+    let ev = events[night][id];
+
+    tonightPhotos.push({
+      id: nextPhotoId++,
+      night,
+      loc: id,
+      time: ev.time,
+      scene: ev.scene,
+      tags: [...ev.tags],
+      p: ev.p
+    });
+
+    flashTimes.push(-9999);
+  }
+
+  nightStart = millis();
+  state = "night";
+}
+
+function drawNight() {
+  drawReserveMap();
+
+  // darkness
+  fill(5, 12, 18, 205);
+  rect(0, 0, width, height);
+
+  let progress = constrain(
+    (millis() - nightStart) / nightDuration,
+    0,
+    1
+  );
+
+  // stars
+  noStroke();
+  fill(230, 240, 245, 170);
+
+  for (let i = 0; i < 55; i++) {
+    let sx = (i * 211) % width;
+    let sy = (i * 79) % 290;
+    ellipse(sx, sy, 2);
+  }
+
+  // moon
+  fill(230, 230, 205);
+  ellipse(1100, 90, 58);
+
+  // clock
+  let totalMinutes = floor(progress * 600);
+  let hour = (20 + floor(totalMinutes / 60)) % 24;
+  let minute = totalMinutes % 60;
+
+  let clock =
+    nf(hour, 2) + ":" + nf(minute, 2);
+
+  fill(255);
+  textAlign(CENTER);
+  textSize(30);
+  text(clock, width / 2, 55);
+
+  // camera activations
+  for (let i = 0; i < tonightPhotos.length; i++) {
+    let p = tonightPhotos[i];
+
+    if (progress >= p.p && flashTimes[i] < 0) {
+      flashTimes[i] = millis();
+    }
+
+    if (
+      flashTimes[i] > 0 &&
+      millis() - flashTimes[i] < 450
+    ) {
+      let site = getSite(p.loc);
+
+      let pulse =
+        map(
+          millis() - flashTimes[i],
+          0,
+          450,
+          110,
+          10
+        );
+
+      noFill();
+      stroke(255, 245, 190, 210);
+      strokeWeight(5);
+      ellipse(site.x, site.y, pulse);
+
+      noStroke();
+      fill(255, 250, 210, 220);
+      ellipse(site.x, site.y, 28);
+    }
+  }
+
+  // progress bar
+  noStroke();
+  fill(255, 255, 255, 40);
+  rect(250, 700, 700, 5);
+
+  fill(235);
+  rect(250, 700, 700 * progress, 5);
+
+  if (progress >= 1 && !nightResolved) {
+    nightResolved = true;
+
+    setTimeout(() => {
+      collectedPhotos.push(...tonightPhotos);
+
+      if (
+        night === 3 &&
+        selectedSites.includes("site")
+      ) {
+        lostCamera = true;
+      }
+
+      state = "review";
+    }, 500);
+  }
+}
+
+// ============================================================
+// PHOTO REVIEW
+// ============================================================
+
+function drawReview() {
+  background(63, 51, 39);
+
+  // wooden desk
+  stroke(76, 61, 45);
+  strokeWeight(3);
+  for (let y = 0; y < height; y += 70) {
+    line(0, y, width, y);
+  }
+  noStroke();
+
+  fill(240);
+  textAlign(LEFT);
+  textSize(18);
+  text("MORNING / " + night, 35, 45);
+
+  const cardW = 315;
+  const cardH = 430;
+  const gap = 40;
+
+  let totalW =
+    tonightPhotos.length * cardW +
+    (tonightPhotos.length - 1) * gap;
+
+  let startX = (width - totalW) / 2;
+
+  for (let i = 0; i < tonightPhotos.length; i++) {
+    let p = tonightPhotos[i];
+    let x = startX + i * (cardW + gap);
+    let y = 115;
+
+    drawPhotoCard(p, x, y, cardW, cardH);
+  }
+
+  button(1040, 675, 115, 45, night === 5 ? "CASE" : "NEXT");
+}
+
+// ============================================================
+// CAMERA PHOTO CARD
+// ============================================================
+
+function drawPhotoCard(p, x, y, w, h) {
+  fill(240, 235, 220);
+  stroke(20, 20, 20, 80);
+  strokeWeight(2);
+  rect(x, y, w, h, 5);
+
+  noStroke();
+
+  drawScene(
+    p,
+    x + 18,
+    y + 18,
+    w - 36,
+    h - 115
+  );
+
+  fill(30);
+  textAlign(LEFT);
+  textSize(13);
+  text(p.time, x + 20, y + h - 70);
+
+  textAlign(RIGHT);
+  text(getSite(p.loc).name, x + w - 20, y + h - 70);
+
+  // night stamp
+  textAlign(LEFT);
+  textSize(10);
+  fill(95);
+  text("CAM " + (p.id + 1), x + 20, y + h - 40);
+}
+
+// ============================================================
+// DRAW FAKE CAMERA-TRAP IMAGE
+// ============================================================
+
+function drawScene(p, x, y, w, h) {
+  push();
+
+  // night vision base
+  fill(39, 49, 42);
+  rect(x, y, w, h);
+
+  // subtle scanlines
+  stroke(255, 255, 255, 12);
+  strokeWeight(1);
+  for (let yy = y; yy < y + h; yy += 9) {
+    line(x, yy, x + w, yy);
+  }
+  noStroke();
+
+  // location background
+  drawSceneBackground(p.loc, x, y, w, h);
+
+  let s = p.scene;
+
+  if (s === "foxEast") {
+    drawFox(x + w * 0.53, y + h * 0.66, 0.85, 1);
+  }
+
+  if (s === "birdWetland") {
+    drawBird(x + w * 0.56, y + h * 0.42, 1);
+  }
+
+  if (s === "owl") {
+    drawOwl(x + w * 0.62, y + h * 0.35);
+  }
+
+  if (s === "tracksStake") {
+    drawTracks(x + w * 0.34, y + h * 0.70, 5);
+    drawStake(x + w * 0.74, y + h * 0.57);
+  }
+
+  if (s === "deerCreek") {
+    drawDeer(x + w * 0.55, y + h * 0.64, 0.9);
+  }
+
+  if (s === "foxCorridor") {
+    drawFox(x + w * 0.55, y + h * 0.65, 0.82, 1);
+    drawStake(x + w * 0.78, y + h * 0.56);
+  }
+
+  if (s === "foxFarm") {
+    drawFox(x + w * 0.64, y + h * 0.69, 0.78, -1);
+    drawCropFence(x, y, w, h);
+  }
+
+  if (s === "muddyCreek") {
+    drawMudFlow(x, y, w, h);
+  }
+
+  if (s === "truckNight") {
+    drawTruck(x + w * 0.52, y + h * 0.64, 0.9);
+  }
+
+  if (s === "emptyNest") {
+    drawNest(x + w * 0.55, y + h * 0.67);
+  }
+
+  if (s === "deerRidge") {
+    drawDeer(x + w * 0.58, y + h * 0.68, 0.8);
+  }
+
+  if (s === "humanDistance") {
+    drawHuman(x + w * 0.76, y + h * 0.57, 0.55);
+  }
+
+  if (s === "multiCorridor") {
+    drawFox(x + w * 0.28, y + h * 0.67, 0.62, 1);
+    drawDeer(x + w * 0.65, y + h * 0.65, 0.60);
+    drawTracks(x + w * 0.49, y + h * 0.77, 3);
+  }
+
+  if (s === "sediment") {
+    drawMudFlow(x, y, w, h);
+    drawStake(x + w * 0.78, y + h * 0.55);
+  }
+
+  if (s === "cameraTamper") {
+    drawHuman(x + w * 0.53, y + h * 0.63, 1.25);
+
+    fill(220, 220, 205, 150);
+    ellipse(x + w * 0.15, y + h * 0.20, 40);
+
+    fill(0, 0, 0, 140);
+    rect(x, y, w, h);
+    fill(240, 240, 220, 180);
+    ellipse(x + w * 0.5, y + h * 0.50, 150);
+  }
+
+  if (s === "tracksTurn") {
+    drawTracks(x + w * 0.25, y + h * 0.75, 7);
+    drawFence(x + w * 0.64, y + h * 0.38, w * 0.30, h * 0.47);
+  }
+
+  if (s === "singleBird") {
+    drawBird(x + w * 0.65, y + h * 0.42, 0.75);
+    drawNest(x + w * 0.38, y + h * 0.72);
+  }
+
+  if (s === "foxBlocked") {
+    drawFox(x + w * 0.36, y + h * 0.69, 0.80, 1);
+    drawFence(x + w * 0.61, y + h * 0.26, w * 0.30, h * 0.62);
+  }
+
+  if (s === "farmAnimals") {
+    drawFox(x + w * 0.31, y + h * 0.70, 0.60, 1);
+    drawDeer(x + w * 0.68, y + h * 0.67, 0.58);
+    drawCropFence(x, y, w, h);
+  }
+
+  if (s === "fenceGrow") {
+    drawTruck(x + w * 0.30, y + h * 0.70, 0.65);
+    drawFence(x + w * 0.48, y + h * 0.25, w * 0.46, h * 0.65);
+  }
+
+  if (s === "multiBlocked") {
+    drawFox(x + w * 0.25, y + h * 0.72, 0.58, 1);
+    drawDeer(x + w * 0.45, y + h * 0.70, 0.50);
+    drawFence(x + w * 0.65, y + h * 0.21, w * 0.27, h * 0.68);
+  }
+
+  if (s === "wildlifeCrowd") {
+    drawFox(x + w * 0.22, y + h * 0.72, 0.52, 1);
+    drawDeer(x + w * 0.53, y + h * 0.66, 0.55);
+    drawFox(x + w * 0.80, y + h * 0.73, 0.45, -1);
+    drawCropFence(x, y, w, h);
+  }
+
+  if (s === "fullFence") {
+    drawFence(x + w * 0.18, y + h * 0.20, w * 0.68, h * 0.70);
+    drawTruck(x + w * 0.68, y + h * 0.70, 0.65);
+  }
+
+  // timestamp overlay
+  fill(235, 240, 225);
+  textAlign(LEFT);
+  textSize(11);
+  text(p.time, x + 8, y + h - 8);
+
+  pop();
+}
+
+function drawSceneBackground(loc, x, y, w, h) {
+  noStroke();
+
+  // ground
+  fill(50, 65, 52);
+  rect(x, y + h * 0.62, w, h * 0.38);
+
+  if (loc === "woods" || loc === "corridor") {
+    for (let i = 0; i < 6; i++) {
+      let tx = x + i * (w / 5);
+
+      fill(30, 43, 32);
+      rect(tx, y, 14, h * 0.72);
+
+      fill(60, 82, 60);
+      ellipse(tx + 5, y + 20, 80, 85);
+    }
+  }
+
+  if (loc === "wetland") {
+    fill(65, 88, 80);
+    rect(x, y + h * 0.58, w, h * 0.42);
+
+    stroke(125, 150, 120);
+    strokeWeight(2);
+    for (let i = 0; i < 16; i++) {
+      let px = x + (i * 31) % w;
+      line(px, y + h * 0.65, px + 3, y + h * 0.47);
+    }
+    noStroke();
+  }
+
+  if (loc === "farm") {
+    stroke(115, 125, 90);
+    for (let i = 0; i < 8; i++) {
+      let yy = y + h * 0.60 + i * 11;
+      line(x, yy, x + w, yy);
+    }
+    noStroke();
+  }
+
+  if (loc === "creek") {
+    fill(70, 96, 93);
+    beginShape();
+    vertex(x, y + h * 0.70);
+    vertex(x + w * 0.40, y + h * 0.58);
+    vertex(x + w, y + h * 0.70);
+    vertex(x + w, y + h);
+    vertex(x, y + h);
+    endShape(CLOSE);
+  }
+
+  if (loc === "ridge") {
+    fill(45, 55, 45);
+    triangle(
+      x,
+      y + h * 0.72,
+      x + w * 0.40,
+      y + h * 0.22,
+      x + w * 0.75,
+      y + h * 0.72
+    );
+  }
+
+  if (loc === "site") {
+    fill(79, 75, 64);
+    rect(x, y + h * 0.55, w, h * 0.45);
+
+    stroke(120);
+    strokeWeight(2);
+    line(x + w * 0.15, y + h * 0.55, x + w * 0.85, y + h * 0.75);
+    noStroke();
+  }
+}
+
+// ============================================================
+// SIMPLE VISUAL OBJECTS
+// ============================================================
+
+function drawFox(x, y, s, dir) {
+  push();
+  translate(x, y);
+  scale(s * dir, s);
+
+  fill(160, 110, 65);
+  ellipse(0, 0, 65, 34);
+
+  triangle(25, -10, 48, -24, 40, 4);
+  ellipse(34, -10, 30, 28);
+
+  triangle(28, -26, 34, -45, 40, -24);
+  triangle(39, -25, 49, -42, 50, -20);
+
+  // tail
+  stroke(160, 110, 65);
+  strokeWeight(16);
+  line(-28, 0, -60, -18);
+
+  // recognizable white tail tip = same fox F12
+  stroke(235);
+  strokeWeight(17);
+  line(-58, -18, -70, -24);
+
+  noStroke();
+  fill(230);
+  ellipse(40, -13, 4);
+
+  stroke(35);
+  strokeWeight(5);
+  line(-15, 13, -17, 34);
+  line(12, 13, 13, 34);
+
+  pop();
+}
+
+function drawBird(x, y, s) {
+  push();
+  translate(x, y);
+  scale(s);
+
+  fill(165, 185, 170);
+  ellipse(0, 0, 35, 22);
+  ellipse(14, -12, 18);
+
+  triangle(24, -12, 38, -8, 24, -5);
+
+  stroke(170);
+  line(-5, 9, -8, 29);
+  line(4, 9, 7, 29);
+
+  pop();
+}
+
+function drawOwl(x, y) {
+  fill(165, 170, 150);
+  ellipse(x, y, 38, 50);
+
+  fill(225);
+  ellipse(x - 8, y - 8, 12);
+  ellipse(x + 8, y - 8, 12);
+
+  fill(20);
+  ellipse(x - 8, y - 8, 4);
+  ellipse(x + 8, y - 8, 4);
+}
+
+function drawDeer(x, y, s) {
+  push();
+  translate(x, y);
+  scale(s);
+
+  fill(135, 115, 80);
+  ellipse(0, 0, 55, 30);
+  rect(20, -30, 10, 33);
+  ellipse(30, -35, 22, 18);
+
+  stroke(135, 115, 80);
+  strokeWeight(4);
+  line(-15, 12, -17, 38);
+  line(15, 12, 18, 38);
+
+  line(31, -42, 28, -56);
+  line(31, -50, 23, -57);
+
+  pop();
+}
+
+function drawHuman(x, y, s) {
+  push();
+  translate(x, y);
+  scale(s);
+
+  fill(25);
+  ellipse(0, -42, 24);
+  rect(-10, -30, 20, 43);
+
+  stroke(25);
+  strokeWeight(8);
+  line(-5, 10, -12, 42);
+  line(5, 10, 14, 42);
+  line(-8, -17, -25, 5);
+  line(8, -17, 25, 2);
+
+  pop();
+}
+
+function drawTruck(x, y, s) {
+  push();
+  translate(x, y);
+  scale(s);
+
+  fill(120);
+  rect(-60, -25, 85, 38);
+  rect(15, -14, 40, 27);
+
+  fill(30);
+  ellipse(-35, 15, 24);
+  ellipse(32, 15, 24);
+
+  fill(190);
+  rect(23, -10, 20, 12);
+
+  pop();
+}
+
+function drawFence(x, y, w, h) {
+  stroke(150);
+  strokeWeight(4);
+
+  for (let xx = x; xx <= x + w; xx += 28) {
+    line(xx, y, xx, y + h);
+  }
+
+  for (let xx = x; xx < x + w; xx += 28) {
+    line(xx, y + 10, xx + 28, y + 36);
+    line(xx, y + 36, xx + 28, y + 10);
+  }
+
+  noStroke();
+}
+
+function drawCropFence(x, y, w, h) {
+  stroke(160);
+  strokeWeight(3);
+
+  line(x, y + h * 0.58, x + w, y + h * 0.58);
+
+  for (let xx = x; xx < x + w; xx += 40) {
+    line(xx, y + h * 0.48, xx, y + h * 0.74);
+  }
+
+  noStroke();
+}
+
+function drawTracks(x, y, amount) {
+  fill(170, 180, 160);
+
+  for (let i = 0; i < amount; i++) {
+    ellipse(x + i * 22, y - i * 6, 8, 12);
+    ellipse(x + 7 + i * 22, y + 5 - i * 6, 8, 12);
+  }
+}
+
+function drawStake(x, y) {
+  stroke(210, 85, 65);
+  strokeWeight(5);
+  line(x, y, x, y + 65);
+
+  noStroke();
+  fill(210, 85, 65);
+  triangle(x, y, x + 25, y + 10, x, y + 20);
+}
+
+function drawNest(x, y) {
+  noFill();
+  stroke(145, 125, 85);
+  strokeWeight(5);
+
+  arc(x, y, 70, 30, 0, PI);
+
+  for (let i = -25; i <= 25; i += 10) {
+    line(x + i, y, x + i * 0.8, y + 18);
+  }
+
+  noStroke();
+}
+
+function drawMudFlow(x, y, w, h) {
+  fill(90, 78, 65, 180);
+
+  beginShape();
+  vertex(x, y + h * 0.72);
+  vertex(x + w * 0.28, y + h * 0.59);
+  vertex(x + w * 0.60, y + h * 0.75);
+  vertex(x + w, y + h * 0.66);
+  vertex(x + w, y + h);
+  vertex(x, y + h);
+  endShape(CLOSE);
+}
+
+// ============================================================
+// TWIST / DOCUMENT REVEAL
+// ============================================================
+
+function drawTwist() {
+  background(36, 32, 27);
+
+  // LEFT: player's original job
+  fill(225, 220, 200);
+  rect(150, 120, 390, 500, 5);
+
+  drawNorthstarLogo(205, 170, 35);
+
+  fill(45);
+  textAlign(LEFT);
+  textSize(15);
+  text("FIELD CONTRACT", 255, 176);
+
+  textSize(27);
+  textStyle(BOLD);
+  text("RECOVER", 200, 270);
+  text("FIELD DATA", 200, 306);
+  textStyle(NORMAL);
+
+  // fake lines
+  for (let i = 0; i < 7; i++) {
+    fill(120);
+    rect(200, 370 + i * 22, 240 - i * 10, 6);
+  }
+
+  // RIGHT: original researcher file
+  fill(235, 230, 210);
+  rect(660, 90, 390, 530, 5);
+
+  drawNorthstarLogo(715, 145, 35);
+
+  fill(45);
+  textSize(15);
+  text("ORIGINAL SURVEY", 765, 151);
+
+  // researcher
+  fill(80);
+  ellipse(760, 280, 58);
+  rect(730, 310, 60, 75, 22);
+
+  textSize(18);
+  text("FIELD RESEARCHER", 830, 290);
+
+  fill(180, 65, 55);
+  textSize(24);
+  textStyle(BOLD);
+  text("RETURN ALL MEDIA", 720, 465);
+  textStyle(NORMAL);
+
+  // same logo connection
+  stroke(245, 205, 75);
+  strokeWeight(4);
+  line(210, 170, 715, 145);
+
+  noStroke();
+  fill(245, 205, 75);
+  ellipse(463, 157, 15);
+
+  button(860, 660, 150, 48, "CONTINUE");
+}
+
+// ============================================================
+// CASE BOARD
+// ============================================================
+
+function drawBoard() {
+  background(92, 63, 43);
+
+  // cork noise / dots
+  noStroke();
+  fill(110, 78, 54);
+  for (let i = 0; i < 200; i++) {
+    let x = (i * 197) % width;
+    let y = (i * 67) % height;
+    ellipse(x, y, 3);
+  }
+
+  fill(240);
+  textAlign(LEFT);
+  textSize(18);
+  text("CASE", 30, 38);
+
+  button(1045, 18, 120, 42, "BACK");
+
+  // layout photos
+  let boxes = boardPhotoBoxes();
+
+  // lines underneath
+  stroke(210, 65, 55);
+  strokeWeight(3);
+
+  for (let link of boardLinks) {
+    let a = boxes.find(b => b.photo.id === link[0]);
+    let b = boxes.find(b => b.photo.id === link[1]);
+
+    if (a && b) {
+      line(
+        a.x + a.w / 2,
+        a.y + a.h / 2,
+        b.x + b.w / 2,
+        b.y + b.h / 2
+      );
+    }
+  }
+
+  noStroke();
+
+  for (let b of boxes) {
+    let selected =
+      boardLinkStart &&
+      boardLinkStart.id === b.photo.id;
+
+    if (selected) {
+      fill(250, 205, 70);
+      rect(b.x - 5, b.y - 5, b.w + 10, b.h + 10, 3);
+    }
+
+    drawMiniPhoto(
+      b.photo,
+      b.x,
+      b.y,
+      b.w,
+      b.h
+    );
+  }
+
+  fill(235);
+  textSize(11);
+  textAlign(CENTER);
+  text("CLICK TWO PHOTOS TO CONNECT", width / 2, 730);
+}
+
+function boardPhotoBoxes() {
+  let boxes = [];
+
+  let cols = 5;
+  let w = 190;
+  let h = 140;
+  let gapX = 32;
+  let gapY = 22;
+
+  let startX = 55;
+  let startY = 85;
+
+  for (let i = 0; i < collectedPhotos.length; i++) {
+    let c = i % cols;
+    let r = floor(i / cols);
+
+    boxes.push({
+      photo: collectedPhotos[i],
+      x: startX + c * (w + gapX),
+      y: startY + r * (h + gapY),
+      w,
+      h
+    });
+  }
+
+  return boxes;
+}
+
+// ============================================================
+// FINAL CASE SELECTION
+// ============================================================
+
+function drawFinalSelection() {
+  background(42, 38, 32);
+
+  fill(240);
+  textAlign(LEFT);
+  textSize(22);
+  text("FINAL CASE", 35, 42);
+
+  textAlign(RIGHT);
+  textSize(15);
+  text(finalSelection.length + " / 5", 1160, 42);
+
+  let boxes = finalPhotoBoxes();
+
+  for (let b of boxes) {
+    let selected =
+      finalSelection.includes(b.photo.id);
+
+    if (selected) {
+      fill(240, 196, 66);
+      rect(
+        b.x - 5,
+        b.y - 5,
+        b.w + 10,
+        b.h + 10,
+        5
+      );
+    }
+
+    drawMiniPhoto(
+      b.photo,
+      b.x,
+      b.y,
+      b.w,
+      b.h
+    );
+  }
+
+  if (finalSelection.length === 5) {
+    button(1010, 690, 150, 45, "SUBMIT");
+  }
+}
+
+function finalPhotoBoxes() {
+  let boxes = [];
+
+  let cols = 5;
+  let w = 190;
+  let h = 150;
+  let gx = 32;
+  let gy = 25;
+  let sx = 50;
+  let sy = 80;
+
+  for (let i = 0; i < collectedPhotos.length; i++) {
+    let c = i % cols;
+    let r = floor(i / cols);
+
+    boxes.push({
+      photo: collectedPhotos[i],
+      x: sx + c * (w + gx),
+      y: sy + r * (h + gy),
+      w,
+      h
+    });
+  }
+
+  return boxes;
+}
+
+function submitCase() {
+  let chosen = collectedPhotos.filter(
+    p => finalSelection.includes(p.id)
+  );
+
+  let tagSet = new Set();
+
+  for (let p of chosen) {
+    for (let t of p.tags) {
+      tagSet.add(t);
+    }
+  }
+
+  let score = 0;
+
+  if (tagSet.has("movement")) score++;
+  if (tagSet.has("corridor")) score++;
+  if (tagSet.has("blocked")) score++;
+  if (tagSet.has("displacement")) score++;
+  if (tagSet.has("construction")) score++;
+  if (tagSet.has("multi")) score++;
+
+  endingStrong = score >= 4;
+
+  state = "ending";
+}
+
+// ============================================================
+// ENDING
+// ============================================================
+
+function drawEnding() {
+  background(26, 30, 27);
+
+  let chosen = collectedPhotos.filter(
+    p => finalSelection.includes(p.id)
+  );
+
+  // evidence photos
+  let spacing = 205;
+  let startX =
+    width / 2 -
+    ((chosen.length - 1) * spacing) / 2 -
+    80;
+
+  let centers = [];
+
+  for (let i = 0; i < chosen.length; i++) {
+    let x = startX + i * spacing;
+    let y = 190 + (i % 2) * 70;
+
+    drawMiniPhoto(
+      chosen[i],
+      x,
+      y,
+      160,
+      125
+    );
+
+    centers.push({
+      x: x + 80,
+      y: y + 62
+    });
+  }
+
+  if (endingStrong) {
+    // connect evidence
+    stroke(225, 75, 60);
+    strokeWeight(4);
+
+    for (let i = 0; i < centers.length - 1; i++) {
+      line(
+        centers[i].x,
+        centers[i].y,
+        centers[i + 1].x,
+        centers[i + 1].y
+      );
+    }
+
+    noStroke();
+
+    fill(240);
+    textAlign(CENTER);
+    textSize(42);
+    textStyle(BOLD);
+    text("CASE HOLDS", width / 2, 100);
+    textStyle(NORMAL);
+
+    // final visual explanation:
+    // habitat -> corridor -> fence -> farm
+    drawFinalDiagram(true);
+  } else {
+    fill(240);
+    textAlign(CENTER);
+    textSize(42);
+    textStyle(BOLD);
+    text("NOT ENOUGH", width / 2, 100);
+    textStyle(NORMAL);
+
+    drawFinalDiagram(false);
+  }
+
+  button(width / 2 - 70, 690, 140, 45, "RESTART");
+}
+
+function drawFinalDiagram(strong) {
+  let y = 565;
+
+  // forest
+  fill(82, 125, 80);
+  ellipse(270, y, 130, 90);
+
+  // corridor
+  stroke(110, 150, 90);
+  strokeWeight(28);
+  line(335, y, 550, y);
+
+  // site
+  noStroke();
+  fill(150, 135, 115);
+  rect(550, y - 55, 190, 110);
+
+  // farm
+  fill(180, 165, 100);
+  rect(820, y - 55, 160, 110, 10);
+
+  if (strong) {
+    // animal movement
+    stroke(240, 190, 60);
+    strokeWeight(5);
+
+    line(260, y, 480, y);
+    line(480, y, 540, y - 20);
+
+    // blocked at fence
+    stroke(180);
+    strokeWeight(5);
+    for (let i = 0; i < 4; i++) {
+      let xx = 565 + i * 20;
+      line(xx, y - 35, xx, y + 35);
+    }
+
+    // displaced route
+    stroke(240, 190, 60);
+    line(540, y - 20, 500, y + 60);
+    line(500, y + 60, 900, y + 60);
+  } else {
+    // disconnected fragments
+    stroke(150);
+    strokeWeight(4);
+    line(260, y, 350, y);
+    line(430, y, 490, y);
+    line(850, y, 930, y);
+  }
+
+  noStroke();
+}
+
+// ============================================================
+// PHOTO OVERLAY
+// ============================================================
+
+function drawPhotoOverlay(p) {
+  fill(0, 0, 0, 210);
+  rect(0, 0, width, height);
+
+  let w = 760;
+  let h = 570;
+  let x = (width - w) / 2;
+  let y = (height - h) / 2;
+
+  fill(242, 237, 220);
+  rect(x, y, w, h, 7);
+
+  drawScene(
+    p,
+    x + 30,
+    y + 30,
+    w - 60,
+    h - 120
+  );
+
+  fill(30);
+  textAlign(LEFT);
+  textSize(18);
+  text(p.time, x + 35, y + h - 55);
+
+  textAlign(RIGHT);
+  text(
+    getSite(p.loc).name,
+    x + w - 35,
+    y + h - 55
+  );
+}
+
+// ============================================================
+// SMALL PHOTO
+// ============================================================
+
+function drawMiniPhoto(p, x, y, w, h) {
+  fill(235, 230, 215);
+  rect(x, y, w, h, 3);
+
+  drawScene(
+    p,
+    x + 7,
+    y + 7,
+    w - 14,
+    h - 27
+  );
+
+  fill(35);
+  textAlign(LEFT);
+  textSize(8);
+  text(p.time, x + 7, y + h - 8);
+}
+
+// ============================================================
+// INPUT
+// ============================================================
+
+function mousePressed() {
+
+  if (enlargedPhoto) {
+    enlargedPhoto = null;
+    return;
+  }
+
+  // INTRO
+  if (state === "intro") {
+    if (hit(760, 520, 110, 48)) {
+      state = "planning";
+    }
+    return;
+  }
+
+  // PLANNING
+  if (state === "planning") {
+
+    // map sites
+    for (let s of sites) {
+      if (dist(mouseX, mouseY, s.x, s.y) < 35) {
+        toggleSite(s.id);
+        return;
+      }
+    }
+
+    // case board
+    if (hit(330, 635, 100, 55)) {
+      state = "board";
+      return;
+    }
+
+    // moon / start night
+    if (
+      selectedSites.length === cameraCount &&
+      dist(mouseX, mouseY, 1085, 655) < 50
+    ) {
+      beginNight();
+      return;
+    }
+
+    // recent photo thumbnails
+    if (collectedPhotos.length > 0) {
+      let recent = collectedPhotos.slice(-4);
+
+      for (let i = 0; i < recent.length; i++) {
+        let x = 470 + i * 115;
+
+        if (hit(x, 620, 95, 78)) {
+          enlargedPhoto = recent[i];
+          return;
+        }
+      }
+    }
+  }
+
+  // REVIEW
+  if (state === "review") {
+    let cardW = 315;
+    let cardH = 430;
+    let gap = 40;
+
+    let totalW =
+      tonightPhotos.length * cardW +
+      (tonightPhotos.length - 1) * gap;
+
+    let startX = (width - totalW) / 2;
+
+    for (let i = 0; i < tonightPhotos.length; i++) {
+      let x = startX + i * (cardW + gap);
+
+      if (hit(x, 115, cardW, cardH)) {
+        enlargedPhoto = tonightPhotos[i];
+        return;
+      }
+    }
+
+    if (hit(1040, 675, 115, 45)) {
+      advanceAfterReview();
+      return;
+    }
+  }
+
+  // TWIST
+  if (state === "twist") {
+    if (hit(860, 660, 150, 48)) {
+
+      if (lostCamera) {
+        cameraCount = 2;
+      }
+
+      night++;
+      selectedSites = [];
+      state = "planning";
+    }
+
+    return;
+  }
+
+  // BOARD
+  if (state === "board") {
+
+    if (hit(1045, 18, 120, 42)) {
+      boardLinkStart = null;
+      state = "planning";
+      return;
+    }
+
+    let boxes = boardPhotoBoxes();
+
+    for (let b of boxes) {
+      if (hit(b.x, b.y, b.w, b.h)) {
+
+        if (!boardLinkStart) {
+          boardLinkStart = b.photo;
+        }
+
+        else if (boardLinkStart.id !== b.photo.id) {
+
+          boardLinks.push([
+            boardLinkStart.id,
+            b.photo.id
+          ]);
+
+          boardLinkStart = null;
+        }
+
+        return;
+      }
+    }
+  }
+
+  // FINAL PHOTO SELECTION
+  if (state === "final") {
+    let boxes = finalPhotoBoxes();
+
+    for (let b of boxes) {
+      if (hit(b.x, b.y, b.w, b.h)) {
+
+        let index =
+          finalSelection.indexOf(b.photo.id);
+
+        if (index >= 0) {
+          finalSelection.splice(index, 1);
+        }
+
+        else if (finalSelection.length < 5) {
+          finalSelection.push(b.photo.id);
+        }
+
+        return;
+      }
+    }
+
+    if (
+      finalSelection.length === 5 &&
+      hit(1010, 690, 150, 45)
+    ) {
+      submitCase();
+      return;
+    }
+  }
+
+  // ENDING
+  if (state === "ending") {
+    if (hit(width / 2 - 70, 690, 140, 45)) {
+      resetGame();
+    }
+  }
+}
+
+// ============================================================
+// GAME FLOW
+// ============================================================
+
+function toggleSite(id) {
+  let index = selectedSites.indexOf(id);
+
+  if (index >= 0) {
+    selectedSites.splice(index, 1);
+  }
+
+  else if (selectedSites.length < cameraCount) {
+    selectedSites.push(id);
+  }
+}
+
+function advanceAfterReview() {
+
+  if (night === 3 && !twistSeen) {
+    twistSeen = true;
+    state = "twist";
+    return;
+  }
+
+  if (night >= totalNights) {
+    state = "final";
+    return;
+  }
+
+  night++;
+  selectedSites = [];
+
+  state = "planning";
+}
+
+function resetGame() {
+  state = "intro";
+
+  night = 1;
+  cameraCount = 3;
+
+  selectedSites = [];
+  tonightPhotos = [];
+  collectedPhotos = [];
+
+  twistSeen = false;
+  lostCamera = false;
+
+  boardLinkStart = null;
+  boardLinks = [];
+
+  finalSelection = [];
+
+  nextPhotoId = 0;
+}
+
+// ============================================================
+// UI
+// ============================================================
+
+function button(x, y, w, h, label) {
+  fill(235);
+  rect(x, y, w, h, 8);
+
+  fill(30);
+  textAlign(CENTER, CENTER);
+  textSize(13);
+  text(label, x + w / 2, y + h / 2);
+}
+
+function drawMoonButton(x, y) {
+  fill(235);
+  ellipse(x, y, 82);
+
+  fill(25);
+  ellipse(x + 17, y - 13, 68);
+
+  fill(235);
+  triangle(
+    x - 8, y + 44,
+    x + 8, y + 44,
+    x, y + 59
+  );
+}
+
+function drawNightDots() {
+  for (let i = 1; i <= totalNights; i++) {
+
+    if (i < night) fill(225);
+    else if (i === night) fill(245, 200, 75);
+    else fill(90);
+
+    ellipse(130 + i * 24, 41, 10);
+  }
+}
+
+function drawCameraIcon(x, y, size) {
+  push();
+  translate(x, y);
+
+  fill(55);
+  rect(
+    -size * 0.50,
+    -size * 0.30,
+    size,
+    size * 0.65,
+    8
+  );
+
+  rect(
+    -size * 0.28,
+    -size * 0.42,
+    size * 0.35,
+    size * 0.15,
+    4
+  );
+
+  fill(25);
+  ellipse(0, 0, size * 0.45);
+
+  fill(100);
+  ellipse(0, 0, size * 0.22);
+
+  pop();
+}
+
+function drawTinyCamera(x, y, used, scaleValue = 1) {
+  push();
+  translate(x, y);
+  scale(scaleValue);
+
+  fill(used ? 90 : 230);
+
+  rect(-20, -13, 40, 28, 5);
+  rect(-10, -19, 14, 7, 2);
+
+  fill(used ? 40 : 60);
+  ellipse(0, 1, 16);
+
+  pop();
+}
+
+function drawNorthstarLogo(x, y, s) {
+  fill(180, 65, 55);
+
+  triangle(
+    x,
+    y - s / 2,
+    x - s / 2,
+    y + s / 2,
+    x + s / 2,
+    y + s / 2
+  );
+
+  fill(235);
+  ellipse(x, y + 5, s * 0.22);
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function getSite(id) {
+  return sites.find(s => s.id === id);
+}
+
+function hit(x, y, w, h) {
+  return (
+    mouseX >= x &&
+    mouseX <= x + w &&
+    mouseY >= y &&
+    mouseY <= y + h
+  );
+}
+
+function blob(x, y, w, h) {
+  ellipse(x, y, w, h);
+}
