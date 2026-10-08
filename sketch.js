@@ -1,18 +1,7 @@
 // ============================================================
 // WILD TRACE — VISUAL GAMEPLAY PROTOTYPE
-// p5.js — no external assets required
-//
-// CORE LOOP:
-// 1. Place limited camera traps.
-// 2. Night passes visually.
-// 3. Inspect whatever your cameras captured.
-// 4. Build connections on the case board.
-// 5. Reserve changes each night.
-// 6. Mid-game reveal changes how you understand the mission.
-// 7. Select 5 photographs to build your final case.
-//
-// Graphics are intentionally primitive.
-// Replace drawScene() visuals later with actual artwork/photos.
+// p5.js (global mode) — no external assets required
+// Loaded by index.html after p5.min.js.
 // ============================================================
 
 let state = "intro";
@@ -51,276 +40,62 @@ let nextPhotoId = 0;
 const sites = [
   { id: "woods",    name: "WOODS",    x: 240, y: 210 },
   { id: "wetland",  name: "WETLAND",  x: 500, y: 175 },
-  { id: "ridge",    name: "RIDGE",     x: 815, y: 160 },
-  { id: "corridor", name: "CORRIDOR",  x: 665, y: 325 },
-  { id: "farm",     name: "FARM",      x: 245, y: 515 },
-  { id: "creek",    name: "CREEK",     x: 500, y: 500 },
-  { id: "site",     name: "SITE",      x: 865, y: 500 }
+  { id: "ridge",    name: "RIDGE",    x: 815, y: 160 },
+  { id: "corridor", name: "CORRIDOR", x: 665, y: 325 },
+  { id: "farm",     name: "FARM",     x: 245, y: 515 },
+  { id: "creek",    name: "CREEK",    x: 500, y: 500 },
+  { id: "site",     name: "SITE",     x: 865, y: 500 }
 ];
 
 // ------------------------------------------------------------
 // PRE-AUTHORED EVENTS
-//
-// Nothing here requires animal AI.
-// If camera is at location X on night Y,
-// it receives that event/photo.
 // ------------------------------------------------------------
 
 const events = {
-
   1: {
-    woods: {
-      time: "01:47",
-      scene: "foxEast",
-      tags: ["fox", "movement"],
-      p: 0.25
-    },
-
-    wetland: {
-      time: "03:18",
-      scene: "birdWetland",
-      tags: ["bird"],
-      p: 0.66
-    },
-
-    ridge: {
-      time: "00:42",
-      scene: "owl",
-      tags: [],
-      p: 0.16
-    },
-
-    corridor: {
-      time: "02:21",
-      scene: "tracksStake",
-      tags: ["tracks", "corridor"],
-      p: 0.45
-    },
-
-    farm: {
-      time: "04:06",
-      scene: "emptyFarm",
-      tags: [],
-      p: 0.82
-    },
-
-    creek: {
-      time: "00:58",
-      scene: "deerCreek",
-      tags: [],
-      p: 0.19
-    },
-
-    site: {
-      time: "23:44",
-      scene: "emptySite",
-      tags: [],
-      p: 0.10
-    }
+    woods:    { time: "01:47", scene: "foxEast",     tags: ["fox", "movement"],    p: 0.25 },
+    wetland:  { time: "03:18", scene: "birdWetland", tags: ["bird"],               p: 0.66 },
+    ridge:    { time: "00:42", scene: "owl",         tags: [],                     p: 0.16 },
+    corridor: { time: "02:21", scene: "tracksStake", tags: ["tracks", "corridor"], p: 0.45 },
+    farm:     { time: "04:06", scene: "emptyFarm",   tags: [],                     p: 0.82 },
+    creek:    { time: "00:58", scene: "deerCreek",   tags: [],                     p: 0.19 },
+    site:     { time: "23:44", scene: "emptySite",   tags: [],                     p: 0.10 }
   },
-
   2: {
-    woods: {
-      time: "01:39",
-      scene: "foxEast",
-      tags: ["fox", "movement"],
-      p: 0.28
-    },
-
-    wetland: {
-      time: "03:11",
-      scene: "emptyNest",
-      tags: ["wetlandChange"],
-      p: 0.65
-    },
-
-    ridge: {
-      time: "02:51",
-      scene: "deerRidge",
-      tags: [],
-      p: 0.58
-    },
-
-    corridor: {
-      time: "02:07",
-      scene: "foxCorridor",
-      tags: ["fox", "movement", "corridor"],
-      p: 0.42
-    },
-
-    farm: {
-      time: "03:02",
-      scene: "foxFarm",
-      tags: ["fox", "farm", "displacement"],
-      p: 0.63
-    },
-
-    creek: {
-      time: "02:38",
-      scene: "muddyCreek",
-      tags: ["waterChange"],
-      p: 0.52
-    },
-
-    site: {
-      time: "00:16",
-      scene: "truckNight",
-      tags: ["construction"],
-      p: 0.14
-    }
+    woods:    { time: "01:39", scene: "foxEast",     tags: ["fox", "movement"],             p: 0.28 },
+    wetland:  { time: "03:11", scene: "emptyNest",   tags: ["wetlandChange"],               p: 0.65 },
+    ridge:    { time: "02:51", scene: "deerRidge",   tags: [],                              p: 0.58 },
+    corridor: { time: "02:07", scene: "foxCorridor", tags: ["fox", "movement", "corridor"], p: 0.42 },
+    farm:     { time: "03:02", scene: "foxFarm",     tags: ["fox", "farm", "displacement"], p: 0.63 },
+    creek:    { time: "02:38", scene: "muddyCreek",  tags: ["waterChange"],                 p: 0.52 },
+    site:     { time: "00:16", scene: "truckNight",  tags: ["construction"],                p: 0.14 }
   },
-
   3: {
-    woods: {
-      time: "02:20",
-      scene: "emptyWoods",
-      tags: [],
-      p: 0.47
-    },
-
-    wetland: {
-      time: "03:28",
-      scene: "emptyWetland",
-      tags: ["wetlandChange"],
-      p: 0.69
-    },
-
-    ridge: {
-      time: "01:12",
-      scene: "humanDistance",
-      tags: ["human"],
-      p: 0.23
-    },
-
-    corridor: {
-      time: "02:44",
-      scene: "multiCorridor",
-      tags: ["corridor", "movement", "multi"],
-      p: 0.55
-    },
-
-    farm: {
-      time: "03:17",
-      scene: "foxFarm",
-      tags: ["fox", "farm", "displacement"],
-      p: 0.67
-    },
-
-    creek: {
-      time: "01:52",
-      scene: "sediment",
-      tags: ["waterChange", "construction"],
-      p: 0.36
-    },
-
-    site: {
-      time: "02:13",
-      scene: "cameraTamper",
-      tags: ["human", "interference", "construction"],
-      p: 0.44
-    }
+    woods:    { time: "02:20", scene: "emptyWoods",    tags: [],                                        p: 0.47 },
+    wetland:  { time: "03:28", scene: "emptyWetland",  tags: ["wetlandChange"],                         p: 0.69 },
+    ridge:    { time: "01:12", scene: "humanDistance", tags: ["human"],                                 p: 0.23 },
+    corridor: { time: "02:44", scene: "multiCorridor", tags: ["corridor", "movement", "multi"],         p: 0.55 },
+    farm:     { time: "03:17", scene: "foxFarm",       tags: ["fox", "farm", "displacement"],           p: 0.67 },
+    creek:    { time: "01:52", scene: "sediment",      tags: ["waterChange", "construction"],           p: 0.36 },
+    site:     { time: "02:13", scene: "cameraTamper",  tags: ["human", "interference", "construction"], p: 0.44 }
   },
-
   4: {
-    woods: {
-      time: "02:04",
-      scene: "tracksTurn",
-      tags: ["movement"],
-      p: 0.42
-    },
-
-    wetland: {
-      time: "03:06",
-      scene: "singleBird",
-      tags: ["wetlandChange"],
-      p: 0.63
-    },
-
-    ridge: {
-      time: "01:49",
-      scene: "emptyRidge",
-      tags: [],
-      p: 0.34
-    },
-
-    corridor: {
-      time: "02:36",
-      scene: "foxBlocked",
-      tags: ["fox", "corridor", "blocked", "fence"],
-      p: 0.51
-    },
-
-    farm: {
-      time: "03:41",
-      scene: "farmAnimals",
-      tags: ["farm", "displacement", "multi"],
-      p: 0.75
-    },
-
-    creek: {
-      time: "01:21",
-      scene: "quietCreek",
-      tags: ["waterChange"],
-      p: 0.26
-    },
-
-    site: {
-      time: "00:37",
-      scene: "fenceGrow",
-      tags: ["construction", "fence"],
-      p: 0.17
-    }
+    woods:    { time: "02:04", scene: "tracksTurn",  tags: ["movement"],                            p: 0.42 },
+    wetland:  { time: "03:06", scene: "singleBird",  tags: ["wetlandChange"],                       p: 0.63 },
+    ridge:    { time: "01:49", scene: "emptyRidge",  tags: [],                                      p: 0.34 },
+    corridor: { time: "02:36", scene: "foxBlocked",  tags: ["fox", "corridor", "blocked", "fence"], p: 0.51 },
+    farm:     { time: "03:41", scene: "farmAnimals", tags: ["farm", "displacement", "multi"],       p: 0.75 },
+    creek:    { time: "01:21", scene: "quietCreek",  tags: ["waterChange"],                         p: 0.26 },
+    site:     { time: "00:37", scene: "fenceGrow",   tags: ["construction", "fence"],               p: 0.17 }
   },
-
   5: {
-    woods: {
-      time: "02:11",
-      scene: "abandonedTrail",
-      tags: ["movement"],
-      p: 0.43
-    },
-
-    wetland: {
-      time: "03:22",
-      scene: "emptyNest",
-      tags: ["wetlandChange"],
-      p: 0.68
-    },
-
-    ridge: {
-      time: "01:56",
-      scene: "deerRidge",
-      tags: [],
-      p: 0.37
-    },
-
-    corridor: {
-      time: "02:31",
-      scene: "multiBlocked",
-      tags: ["corridor", "movement", "multi", "blocked", "fence"],
-      p: 0.50
-    },
-
-    farm: {
-      time: "03:46",
-      scene: "wildlifeCrowd",
-      tags: ["farm", "displacement", "multi"],
-      p: 0.76
-    },
-
-    creek: {
-      time: "01:44",
-      scene: "muddyCreek",
-      tags: ["waterChange"],
-      p: 0.32
-    },
-
-    site: {
-      time: "00:28",
-      scene: "fullFence",
-      tags: ["construction", "fence"],
-      p: 0.15
-    }
+    woods:    { time: "02:11", scene: "abandonedTrail", tags: ["movement"],                                          p: 0.43 },
+    wetland:  { time: "03:22", scene: "emptyNest",      tags: ["wetlandChange"],                                     p: 0.68 },
+    ridge:    { time: "01:56", scene: "deerRidge",      tags: [],                                                    p: 0.37 },
+    corridor: { time: "02:31", scene: "multiBlocked",   tags: ["corridor", "movement", "multi", "blocked", "fence"], p: 0.50 },
+    farm:     { time: "03:46", scene: "wildlifeCrowd",  tags: ["farm", "displacement", "multi"],                     p: 0.76 },
+    creek:    { time: "01:44", scene: "muddyCreek",     tags: ["waterChange"],                                       p: 0.32 },
+    site:     { time: "00:28", scene: "fullFence",      tags: ["construction", "fence"],                             p: 0.15 }
   }
 };
 
@@ -329,7 +104,8 @@ const events = {
 // ============================================================
 
 function setup() {
-  createCanvas(1200, 760);
+  const cnv = createCanvas(1200, 760);
+  cnv.parent("game");
   textFont("Arial");
 }
 
@@ -361,18 +137,15 @@ function draw() {
 function drawIntro() {
   background(22, 29, 25);
 
-  // desk
   fill(52, 45, 35);
   rect(0, 520, width, 240);
 
-  // file folder
   fill(210, 192, 145);
   rect(285, 120, 630, 470, 8);
 
   fill(194, 171, 115);
   rect(285, 95, 230, 45, 6);
 
-  // researcher photo
   fill(235);
   rect(350, 180, 190, 235);
 
@@ -380,15 +153,12 @@ function drawIntro() {
   ellipse(445, 255, 70);
   rect(405, 295, 80, 80, 30);
 
-  // camera
   drawCameraIcon(655, 235, 85);
 
-  // three camera symbols
   for (let i = 0; i < 3; i++) {
     drawTinyCamera(640 + i * 65, 350, false);
   }
 
-  // logo
   drawNorthstarLogo(750, 175, 42);
 
   fill(40);
@@ -401,7 +171,6 @@ function drawIntro() {
   text("RECOVER FIELD DATA", 350, 495);
   textStyle(NORMAL);
 
-  // 5 nights
   for (let i = 0; i < 5; i++) {
     fill(45);
     ellipse(365 + i * 34, 540, 13);
@@ -417,7 +186,6 @@ function drawIntro() {
 function drawPlanning() {
   drawReserveMap();
 
-  // top bar
   fill(20, 25, 22, 225);
   rect(0, 0, width, 82);
 
@@ -428,7 +196,6 @@ function drawPlanning() {
 
   drawNightDots();
 
-  // camera dock
   fill(26, 30, 28, 230);
   rect(35, 610, 260, 110, 14);
 
@@ -437,16 +204,13 @@ function drawPlanning() {
     drawTinyCamera(85 + i * 70, 655, used);
   }
 
-  // tiny interaction hint
   fill(220);
   textSize(11);
   textAlign(LEFT);
   text("CAMERAS", 55, 704);
 
-  // case board
   button(330, 635, 100, 55, "CASE");
 
-  // begin night
   let ready = selectedSites.length === cameraCount;
 
   if (ready) {
@@ -458,10 +222,8 @@ function drawPlanning() {
     text((cameraCount - selectedSites.length) + " LEFT", 1145, 655);
   }
 
-  // old photo strip
   if (collectedPhotos.length > 0) {
     let recent = collectedPhotos.slice(-4);
-
     for (let i = 0; i < recent.length; i++) {
       let x = 470 + i * 115;
       drawMiniPhoto(recent[i], x, 620, 95, 78);
@@ -476,65 +238,48 @@ function drawPlanning() {
 function drawReserveMap() {
   background(166, 183, 145);
 
-  // forest
   noStroke();
   fill(94, 130, 87);
   blob(200, 220, 280, 220);
 
-  // wetland
   fill(95, 145, 150);
   ellipse(500, 200, 260, 170);
 
-  // ridge
   fill(133, 125, 94);
   triangle(700, 250, 820, 90, 930, 245);
   triangle(790, 250, 910, 120, 1000, 250);
 
-  // farm
   fill(182, 168, 105);
   rect(80, 410, 310, 220, 25);
 
-  // crop rows
   stroke(145, 130, 80);
   strokeWeight(4);
   for (let y = 440; y < 610; y += 25) {
     line(110, y, 355, y);
   }
 
-  // creek
   noFill();
   stroke(75, 133, 165);
   strokeWeight(32);
   bezier(425, 330, 410, 430, 590, 420, 555, 650);
 
-  // corridor
   stroke(113, 145, 91);
   strokeWeight(80);
   line(580, 280, 780, 380);
 
-  // development
   noStroke();
   fill(160, 145, 125);
   rect(770, 365, 350, 280, 25);
 
-  // construction clearing grows
   drawConstructionProgress();
 
-  // locations
   for (let s of sites) {
     drawSiteMarker(s);
   }
 }
 
 function drawConstructionProgress() {
-  let stages = [
-    0,
-    45,
-    105,
-    165,
-    235
-  ];
-
+  let stages = [0, 45, 105, 165, 235];
   let size = stages[night - 1];
 
   if (size > 0) {
@@ -542,24 +287,19 @@ function drawConstructionProgress() {
     rect(755, 335, size, 70, 8);
   }
 
-  // survey stakes
   if (night >= 2) {
     stroke(190, 80, 60);
     strokeWeight(4);
-
     for (let i = 0; i < night; i++) {
       let x = 750 + i * 50;
       line(x, 315, x, 355);
     }
   }
 
-  // fence grows visually
   if (night >= 3) {
     let segments = night - 2;
-
     stroke(80);
     strokeWeight(3);
-
     for (let i = 0; i < segments * 3; i++) {
       let x = 710 + i * 30;
       line(x, 355, x, 410);
@@ -609,7 +349,6 @@ function beginNight() {
 
   for (let id of selectedSites) {
     let ev = events[night][id];
-
     tonightPhotos.push({
       id: nextPhotoId++,
       night,
@@ -619,7 +358,6 @@ function beginNight() {
       tags: [...ev.tags],
       p: ev.p
     });
-
     flashTimes.push(-9999);
   }
 
@@ -630,44 +368,32 @@ function beginNight() {
 function drawNight() {
   drawReserveMap();
 
-  // darkness
   fill(5, 12, 18, 205);
   rect(0, 0, width, height);
 
-  let progress = constrain(
-    (millis() - nightStart) / nightDuration,
-    0,
-    1
-  );
+  let progress = constrain((millis() - nightStart) / nightDuration, 0, 1);
 
-  // stars
   noStroke();
   fill(230, 240, 245, 170);
-
   for (let i = 0; i < 55; i++) {
     let sx = (i * 211) % width;
     let sy = (i * 79) % 290;
     ellipse(sx, sy, 2);
   }
 
-  // moon
   fill(230, 230, 205);
   ellipse(1100, 90, 58);
 
-  // clock
   let totalMinutes = floor(progress * 600);
   let hour = (20 + floor(totalMinutes / 60)) % 24;
   let minute = totalMinutes % 60;
-
-  let clock =
-    nf(hour, 2) + ":" + nf(minute, 2);
+  let clock = nf(hour, 2) + ":" + nf(minute, 2);
 
   fill(255);
   textAlign(CENTER);
   textSize(30);
   text(clock, width / 2, 55);
 
-  // camera activations
   for (let i = 0; i < tonightPhotos.length; i++) {
     let p = tonightPhotos[i];
 
@@ -675,20 +401,9 @@ function drawNight() {
       flashTimes[i] = millis();
     }
 
-    if (
-      flashTimes[i] > 0 &&
-      millis() - flashTimes[i] < 450
-    ) {
+    if (flashTimes[i] > 0 && millis() - flashTimes[i] < 450) {
       let site = getSite(p.loc);
-
-      let pulse =
-        map(
-          millis() - flashTimes[i],
-          0,
-          450,
-          110,
-          10
-        );
+      let pulse = map(millis() - flashTimes[i], 0, 450, 110, 10);
 
       noFill();
       stroke(255, 245, 190, 210);
@@ -701,7 +416,6 @@ function drawNight() {
     }
   }
 
-  // progress bar
   noStroke();
   fill(255, 255, 255, 40);
   rect(250, 700, 700, 5);
@@ -715,10 +429,7 @@ function drawNight() {
     setTimeout(() => {
       collectedPhotos.push(...tonightPhotos);
 
-      if (
-        night === 3 &&
-        selectedSites.includes("site")
-      ) {
+      if (night === 3 && selectedSites.includes("site")) {
         lostCamera = true;
       }
 
@@ -734,7 +445,6 @@ function drawNight() {
 function drawReview() {
   background(63, 51, 39);
 
-  // wooden desk
   stroke(76, 61, 45);
   strokeWeight(3);
   for (let y = 0; y < height; y += 70) {
@@ -751,18 +461,12 @@ function drawReview() {
   const cardH = 430;
   const gap = 40;
 
-  let totalW =
-    tonightPhotos.length * cardW +
-    (tonightPhotos.length - 1) * gap;
-
+  let totalW = tonightPhotos.length * cardW + (tonightPhotos.length - 1) * gap;
   let startX = (width - totalW) / 2;
 
   for (let i = 0; i < tonightPhotos.length; i++) {
-    let p = tonightPhotos[i];
     let x = startX + i * (cardW + gap);
-    let y = 115;
-
-    drawPhotoCard(p, x, y, cardW, cardH);
+    drawPhotoCard(tonightPhotos[i], x, 115, cardW, cardH);
   }
 
   button(1040, 675, 115, 45, night === 5 ? "CASE" : "NEXT");
@@ -780,13 +484,7 @@ function drawPhotoCard(p, x, y, w, h) {
 
   noStroke();
 
-  drawScene(
-    p,
-    x + 18,
-    y + 18,
-    w - 36,
-    h - 115
-  );
+  drawScene(p, x + 18, y + 18, w - 36, h - 115);
 
   fill(30);
   textAlign(LEFT);
@@ -796,7 +494,6 @@ function drawPhotoCard(p, x, y, w, h) {
   textAlign(RIGHT);
   text(getSite(p.loc).name, x + w - 20, y + h - 70);
 
-  // night stamp
   textAlign(LEFT);
   textSize(10);
   fill(95);
@@ -810,11 +507,9 @@ function drawPhotoCard(p, x, y, w, h) {
 function drawScene(p, x, y, w, h) {
   push();
 
-  // night vision base
   fill(39, 49, 42);
   rect(x, y, w, h);
 
-  // subtle scanlines
   stroke(255, 255, 255, 12);
   strokeWeight(1);
   for (let yy = y; yy < y + h; yy += 9) {
@@ -822,7 +517,6 @@ function drawScene(p, x, y, w, h) {
   }
   noStroke();
 
-  // location background
   drawSceneBackground(p.loc, x, y, w, h);
 
   let s = p.scene;
@@ -945,7 +639,6 @@ function drawScene(p, x, y, w, h) {
     drawTruck(x + w * 0.68, y + h * 0.70, 0.65);
   }
 
-  // timestamp overlay
   fill(235, 240, 225);
   textAlign(LEFT);
   textSize(11);
@@ -957,17 +650,14 @@ function drawScene(p, x, y, w, h) {
 function drawSceneBackground(loc, x, y, w, h) {
   noStroke();
 
-  // ground
   fill(50, 65, 52);
   rect(x, y + h * 0.62, w, h * 0.38);
 
   if (loc === "woods" || loc === "corridor") {
     for (let i = 0; i < 6; i++) {
       let tx = x + i * (w / 5);
-
       fill(30, 43, 32);
       rect(tx, y, 14, h * 0.72);
-
       fill(60, 82, 60);
       ellipse(tx + 5, y + 20, 80, 85);
     }
@@ -1009,12 +699,9 @@ function drawSceneBackground(loc, x, y, w, h) {
   if (loc === "ridge") {
     fill(45, 55, 45);
     triangle(
-      x,
-      y + h * 0.72,
-      x + w * 0.40,
-      y + h * 0.22,
-      x + w * 0.75,
-      y + h * 0.72
+      x, y + h * 0.72,
+      x + w * 0.40, y + h * 0.22,
+      x + w * 0.75, y + h * 0.72
     );
   }
 
@@ -1190,7 +877,6 @@ function drawCropFence(x, y, w, h) {
 
 function drawTracks(x, y, amount) {
   fill(170, 180, 160);
-
   for (let i = 0; i < amount; i++) {
     ellipse(x + i * 22, y - i * 6, 8, 12);
     ellipse(x + 7 + i * 22, y + 5 - i * 6, 8, 12);
@@ -1223,7 +909,6 @@ function drawNest(x, y) {
 
 function drawMudFlow(x, y, w, h) {
   fill(90, 78, 65, 180);
-
   beginShape();
   vertex(x, y + h * 0.72);
   vertex(x + w * 0.28, y + h * 0.59);
@@ -1241,7 +926,6 @@ function drawMudFlow(x, y, w, h) {
 function drawTwist() {
   background(36, 32, 27);
 
-  // LEFT: player's original job
   fill(225, 220, 200);
   rect(150, 120, 390, 500, 5);
 
@@ -1258,13 +942,11 @@ function drawTwist() {
   text("FIELD DATA", 200, 306);
   textStyle(NORMAL);
 
-  // fake lines
   for (let i = 0; i < 7; i++) {
     fill(120);
     rect(200, 370 + i * 22, 240 - i * 10, 6);
   }
 
-  // RIGHT: original researcher file
   fill(235, 230, 210);
   rect(660, 90, 390, 530, 5);
 
@@ -1274,7 +956,6 @@ function drawTwist() {
   textSize(15);
   text("ORIGINAL SURVEY", 765, 151);
 
-  // researcher
   fill(80);
   ellipse(760, 280, 58);
   rect(730, 310, 60, 75, 22);
@@ -1288,7 +969,6 @@ function drawTwist() {
   text("RETURN ALL MEDIA", 720, 465);
   textStyle(NORMAL);
 
-  // same logo connection
   stroke(245, 205, 75);
   strokeWeight(4);
   line(210, 170, 715, 145);
@@ -1307,7 +987,6 @@ function drawTwist() {
 function drawBoard() {
   background(92, 63, 43);
 
-  // cork noise / dots
   noStroke();
   fill(110, 78, 54);
   for (let i = 0; i < 200; i++) {
@@ -1323,46 +1002,30 @@ function drawBoard() {
 
   button(1045, 18, 120, 42, "BACK");
 
-  // layout photos
   let boxes = boardPhotoBoxes();
 
-  // lines underneath
   stroke(210, 65, 55);
   strokeWeight(3);
 
   for (let link of boardLinks) {
     let a = boxes.find(b => b.photo.id === link[0]);
     let b = boxes.find(b => b.photo.id === link[1]);
-
     if (a && b) {
-      line(
-        a.x + a.w / 2,
-        a.y + a.h / 2,
-        b.x + b.w / 2,
-        b.y + b.h / 2
-      );
+      line(a.x + a.w / 2, a.y + a.h / 2, b.x + b.w / 2, b.y + b.h / 2);
     }
   }
 
   noStroke();
 
   for (let b of boxes) {
-    let selected =
-      boardLinkStart &&
-      boardLinkStart.id === b.photo.id;
+    let selected = boardLinkStart && boardLinkStart.id === b.photo.id;
 
     if (selected) {
       fill(250, 205, 70);
       rect(b.x - 5, b.y - 5, b.w + 10, b.h + 10, 3);
     }
 
-    drawMiniPhoto(
-      b.photo,
-      b.x,
-      b.y,
-      b.w,
-      b.h
-    );
+    drawMiniPhoto(b.photo, b.x, b.y, b.w, b.h);
   }
 
   fill(235);
@@ -1373,20 +1036,11 @@ function drawBoard() {
 
 function boardPhotoBoxes() {
   let boxes = [];
-
-  let cols = 5;
-  let w = 190;
-  let h = 140;
-  let gapX = 32;
-  let gapY = 22;
-
-  let startX = 55;
-  let startY = 85;
+  let cols = 5, w = 190, h = 140, gapX = 32, gapY = 22, startX = 55, startY = 85;
 
   for (let i = 0; i < collectedPhotos.length; i++) {
     let c = i % cols;
     let r = floor(i / cols);
-
     boxes.push({
       photo: collectedPhotos[i],
       x: startX + c * (w + gapX),
@@ -1418,27 +1072,11 @@ function drawFinalSelection() {
   let boxes = finalPhotoBoxes();
 
   for (let b of boxes) {
-    let selected =
-      finalSelection.includes(b.photo.id);
-
-    if (selected) {
+    if (finalSelection.includes(b.photo.id)) {
       fill(240, 196, 66);
-      rect(
-        b.x - 5,
-        b.y - 5,
-        b.w + 10,
-        b.h + 10,
-        5
-      );
+      rect(b.x - 5, b.y - 5, b.w + 10, b.h + 10, 5);
     }
-
-    drawMiniPhoto(
-      b.photo,
-      b.x,
-      b.y,
-      b.w,
-      b.h
-    );
+    drawMiniPhoto(b.photo, b.x, b.y, b.w, b.h);
   }
 
   if (finalSelection.length === 5) {
@@ -1448,19 +1086,11 @@ function drawFinalSelection() {
 
 function finalPhotoBoxes() {
   let boxes = [];
-
-  let cols = 5;
-  let w = 190;
-  let h = 150;
-  let gx = 32;
-  let gy = 25;
-  let sx = 50;
-  let sy = 80;
+  let cols = 5, w = 190, h = 150, gx = 32, gy = 25, sx = 50, sy = 80;
 
   for (let i = 0; i < collectedPhotos.length; i++) {
     let c = i % cols;
     let r = floor(i / cols);
-
     boxes.push({
       photo: collectedPhotos[i],
       x: sx + c * (w + gx),
@@ -1474,20 +1104,14 @@ function finalPhotoBoxes() {
 }
 
 function submitCase() {
-  let chosen = collectedPhotos.filter(
-    p => finalSelection.includes(p.id)
-  );
+  let chosen = collectedPhotos.filter(p => finalSelection.includes(p.id));
 
   let tagSet = new Set();
-
   for (let p of chosen) {
-    for (let t of p.tags) {
-      tagSet.add(t);
-    }
+    for (let t of p.tags) tagSet.add(t);
   }
 
   let score = 0;
-
   if (tagSet.has("movement")) score++;
   if (tagSet.has("corridor")) score++;
   if (tagSet.has("blocked")) score++;
@@ -1496,7 +1120,6 @@ function submitCase() {
   if (tagSet.has("multi")) score++;
 
   endingStrong = score >= 4;
-
   state = "ending";
 }
 
@@ -1507,51 +1130,25 @@ function submitCase() {
 function drawEnding() {
   background(26, 30, 27);
 
-  let chosen = collectedPhotos.filter(
-    p => finalSelection.includes(p.id)
-  );
+  let chosen = collectedPhotos.filter(p => finalSelection.includes(p.id));
 
-  // evidence photos
   let spacing = 205;
-  let startX =
-    width / 2 -
-    ((chosen.length - 1) * spacing) / 2 -
-    80;
-
+  let startX = width / 2 - ((chosen.length - 1) * spacing) / 2 - 80;
   let centers = [];
 
   for (let i = 0; i < chosen.length; i++) {
     let x = startX + i * spacing;
     let y = 190 + (i % 2) * 70;
-
-    drawMiniPhoto(
-      chosen[i],
-      x,
-      y,
-      160,
-      125
-    );
-
-    centers.push({
-      x: x + 80,
-      y: y + 62
-    });
+    drawMiniPhoto(chosen[i], x, y, 160, 125);
+    centers.push({ x: x + 80, y: y + 62 });
   }
 
   if (endingStrong) {
-    // connect evidence
     stroke(225, 75, 60);
     strokeWeight(4);
-
     for (let i = 0; i < centers.length - 1; i++) {
-      line(
-        centers[i].x,
-        centers[i].y,
-        centers[i + 1].x,
-        centers[i + 1].y
-      );
+      line(centers[i].x, centers[i].y, centers[i + 1].x, centers[i + 1].y);
     }
-
     noStroke();
 
     fill(240);
@@ -1561,8 +1158,6 @@ function drawEnding() {
     text("CASE HOLDS", width / 2, 100);
     textStyle(NORMAL);
 
-    // final visual explanation:
-    // habitat -> corridor -> fence -> farm
     drawFinalDiagram(true);
   } else {
     fill(240);
@@ -1581,33 +1176,26 @@ function drawEnding() {
 function drawFinalDiagram(strong) {
   let y = 565;
 
-  // forest
   fill(82, 125, 80);
   ellipse(270, y, 130, 90);
 
-  // corridor
   stroke(110, 150, 90);
   strokeWeight(28);
   line(335, y, 550, y);
 
-  // site
   noStroke();
   fill(150, 135, 115);
   rect(550, y - 55, 190, 110);
 
-  // farm
   fill(180, 165, 100);
   rect(820, y - 55, 160, 110, 10);
 
   if (strong) {
-    // animal movement
     stroke(240, 190, 60);
     strokeWeight(5);
-
     line(260, y, 480, y);
     line(480, y, 540, y - 20);
 
-    // blocked at fence
     stroke(180);
     strokeWeight(5);
     for (let i = 0; i < 4; i++) {
@@ -1615,12 +1203,10 @@ function drawFinalDiagram(strong) {
       line(xx, y - 35, xx, y + 35);
     }
 
-    // displaced route
     stroke(240, 190, 60);
     line(540, y - 20, 500, y + 60);
     line(500, y + 60, 900, y + 60);
   } else {
-    // disconnected fragments
     stroke(150);
     strokeWeight(4);
     line(260, y, 350, y);
@@ -1647,13 +1233,7 @@ function drawPhotoOverlay(p) {
   fill(242, 237, 220);
   rect(x, y, w, h, 7);
 
-  drawScene(
-    p,
-    x + 30,
-    y + 30,
-    w - 60,
-    h - 120
-  );
+  drawScene(p, x + 30, y + 30, w - 60, h - 120);
 
   fill(30);
   textAlign(LEFT);
@@ -1661,11 +1241,7 @@ function drawPhotoOverlay(p) {
   text(p.time, x + 35, y + h - 55);
 
   textAlign(RIGHT);
-  text(
-    getSite(p.loc).name,
-    x + w - 35,
-    y + h - 55
-  );
+  text(getSite(p.loc).name, x + w - 35, y + h - 55);
 }
 
 // ============================================================
@@ -1676,13 +1252,7 @@ function drawMiniPhoto(p, x, y, w, h) {
   fill(235, 230, 215);
   rect(x, y, w, h, 3);
 
-  drawScene(
-    p,
-    x + 7,
-    y + 7,
-    w - 14,
-    h - 27
-  );
+  drawScene(p, x + 7, y + 7, w - 14, h - 27);
 
   fill(35);
   textAlign(LEFT);
@@ -1695,24 +1265,17 @@ function drawMiniPhoto(p, x, y, w, h) {
 // ============================================================
 
 function mousePressed() {
-
   if (enlargedPhoto) {
     enlargedPhoto = null;
     return;
   }
 
-  // INTRO
   if (state === "intro") {
-    if (hit(760, 520, 110, 48)) {
-      state = "planning";
-    }
+    if (hit(760, 520, 110, 48)) state = "planning";
     return;
   }
 
-  // PLANNING
   if (state === "planning") {
-
-    // map sites
     for (let s of sites) {
       if (dist(mouseX, mouseY, s.x, s.y) < 35) {
         toggleSite(s.id);
@@ -1720,148 +1283,98 @@ function mousePressed() {
       }
     }
 
-    // case board
     if (hit(330, 635, 100, 55)) {
       state = "board";
       return;
     }
 
-    // moon / start night
-    if (
-      selectedSites.length === cameraCount &&
-      dist(mouseX, mouseY, 1085, 655) < 50
-    ) {
+    if (selectedSites.length === cameraCount && dist(mouseX, mouseY, 1085, 655) < 50) {
       beginNight();
       return;
     }
 
-    // recent photo thumbnails
     if (collectedPhotos.length > 0) {
       let recent = collectedPhotos.slice(-4);
-
       for (let i = 0; i < recent.length; i++) {
         let x = 470 + i * 115;
-
         if (hit(x, 620, 95, 78)) {
           enlargedPhoto = recent[i];
           return;
         }
       }
     }
+    return;
   }
 
-  // REVIEW
   if (state === "review") {
-    let cardW = 315;
-    let cardH = 430;
-    let gap = 40;
-
-    let totalW =
-      tonightPhotos.length * cardW +
-      (tonightPhotos.length - 1) * gap;
-
+    let cardW = 315, cardH = 430, gap = 40;
+    let totalW = tonightPhotos.length * cardW + (tonightPhotos.length - 1) * gap;
     let startX = (width - totalW) / 2;
 
     for (let i = 0; i < tonightPhotos.length; i++) {
       let x = startX + i * (cardW + gap);
-
       if (hit(x, 115, cardW, cardH)) {
         enlargedPhoto = tonightPhotos[i];
         return;
       }
     }
 
-    if (hit(1040, 675, 115, 45)) {
-      advanceAfterReview();
-      return;
-    }
+    if (hit(1040, 675, 115, 45)) advanceAfterReview();
+    return;
   }
 
-  // TWIST
   if (state === "twist") {
     if (hit(860, 660, 150, 48)) {
-
-      if (lostCamera) {
-        cameraCount = 2;
-      }
-
+      if (lostCamera) cameraCount = 2;
       night++;
       selectedSites = [];
       state = "planning";
     }
-
     return;
   }
 
-  // BOARD
   if (state === "board") {
-
     if (hit(1045, 18, 120, 42)) {
       boardLinkStart = null;
       state = "planning";
       return;
     }
 
-    let boxes = boardPhotoBoxes();
-
-    for (let b of boxes) {
+    for (let b of boardPhotoBoxes()) {
       if (hit(b.x, b.y, b.w, b.h)) {
-
         if (!boardLinkStart) {
           boardLinkStart = b.photo;
-        }
-
-        else if (boardLinkStart.id !== b.photo.id) {
-
-          boardLinks.push([
-            boardLinkStart.id,
-            b.photo.id
-          ]);
-
+        } else if (boardLinkStart.id !== b.photo.id) {
+          boardLinks.push([boardLinkStart.id, b.photo.id]);
           boardLinkStart = null;
         }
-
         return;
       }
     }
+    return;
   }
 
-  // FINAL PHOTO SELECTION
   if (state === "final") {
-    let boxes = finalPhotoBoxes();
-
-    for (let b of boxes) {
+    for (let b of finalPhotoBoxes()) {
       if (hit(b.x, b.y, b.w, b.h)) {
-
-        let index =
-          finalSelection.indexOf(b.photo.id);
-
+        let index = finalSelection.indexOf(b.photo.id);
         if (index >= 0) {
           finalSelection.splice(index, 1);
-        }
-
-        else if (finalSelection.length < 5) {
+        } else if (finalSelection.length < 5) {
           finalSelection.push(b.photo.id);
         }
-
         return;
       }
     }
 
-    if (
-      finalSelection.length === 5 &&
-      hit(1010, 690, 150, 45)
-    ) {
+    if (finalSelection.length === 5 && hit(1010, 690, 150, 45)) {
       submitCase();
-      return;
     }
+    return;
   }
 
-  // ENDING
   if (state === "ending") {
-    if (hit(width / 2 - 70, 690, 140, 45)) {
-      resetGame();
-    }
+    if (hit(width / 2 - 70, 690, 140, 45)) resetGame();
   }
 }
 
@@ -1871,18 +1384,14 @@ function mousePressed() {
 
 function toggleSite(id) {
   let index = selectedSites.indexOf(id);
-
   if (index >= 0) {
     selectedSites.splice(index, 1);
-  }
-
-  else if (selectedSites.length < cameraCount) {
+  } else if (selectedSites.length < cameraCount) {
     selectedSites.push(id);
   }
 }
 
 function advanceAfterReview() {
-
   if (night === 3 && !twistSeen) {
     twistSeen = true;
     state = "twist";
@@ -1896,19 +1405,19 @@ function advanceAfterReview() {
 
   night++;
   selectedSites = [];
-
   state = "planning";
 }
 
 function resetGame() {
   state = "intro";
-
   night = 1;
   cameraCount = 3;
 
   selectedSites = [];
   tonightPhotos = [];
   collectedPhotos = [];
+  flashTimes = [];
+  enlargedPhoto = null;
 
   twistSeen = false;
   lostCamera = false;
@@ -1917,6 +1426,7 @@ function resetGame() {
   boardLinks = [];
 
   finalSelection = [];
+  endingStrong = false;
 
   nextPhotoId = 0;
 }
@@ -1943,20 +1453,14 @@ function drawMoonButton(x, y) {
   ellipse(x + 17, y - 13, 68);
 
   fill(235);
-  triangle(
-    x - 8, y + 44,
-    x + 8, y + 44,
-    x, y + 59
-  );
+  triangle(x - 8, y + 44, x + 8, y + 44, x, y + 59);
 }
 
 function drawNightDots() {
   for (let i = 1; i <= totalNights; i++) {
-
     if (i < night) fill(225);
     else if (i === night) fill(245, 200, 75);
     else fill(90);
-
     ellipse(130 + i * 24, 41, 10);
   }
 }
@@ -1966,21 +1470,8 @@ function drawCameraIcon(x, y, size) {
   translate(x, y);
 
   fill(55);
-  rect(
-    -size * 0.50,
-    -size * 0.30,
-    size,
-    size * 0.65,
-    8
-  );
-
-  rect(
-    -size * 0.28,
-    -size * 0.42,
-    size * 0.35,
-    size * 0.15,
-    4
-  );
+  rect(-size * 0.50, -size * 0.30, size, size * 0.65, 8);
+  rect(-size * 0.28, -size * 0.42, size * 0.35, size * 0.15, 4);
 
   fill(25);
   ellipse(0, 0, size * 0.45);
@@ -1997,7 +1488,6 @@ function drawTinyCamera(x, y, used, scaleValue = 1) {
   scale(scaleValue);
 
   fill(used ? 90 : 230);
-
   rect(-20, -13, 40, 28, 5);
   rect(-10, -19, 14, 7, 2);
 
@@ -2009,15 +1499,7 @@ function drawTinyCamera(x, y, used, scaleValue = 1) {
 
 function drawNorthstarLogo(x, y, s) {
   fill(180, 65, 55);
-
-  triangle(
-    x,
-    y - s / 2,
-    x - s / 2,
-    y + s / 2,
-    x + s / 2,
-    y + s / 2
-  );
+  triangle(x, y - s / 2, x - s / 2, y + s / 2, x + s / 2, y + s / 2);
 
   fill(235);
   ellipse(x, y + 5, s * 0.22);
@@ -2032,12 +1514,7 @@ function getSite(id) {
 }
 
 function hit(x, y, w, h) {
-  return (
-    mouseX >= x &&
-    mouseX <= x + w &&
-    mouseY >= y &&
-    mouseY <= y + h
-  );
+  return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
 }
 
 function blob(x, y, w, h) {
